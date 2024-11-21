@@ -7,7 +7,7 @@ const app = express();
 const PORT = 8088;
 
 const SERVICES = {
-    auth: 'http://localhost:8080', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
+    auth: 'http://localhost:8080/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
     posts: 'http://localhost:8082', // Serviço de posts
     notifications: 'http://localhost:8083', // Serviço de notificações
 };
@@ -21,7 +21,7 @@ const authenticate = async (req, res, next) => {
 
     try {
         // Valida o token via microsserviço de autenticação
-        const response = await axios.get(`${SERVICES.auth}/api/auth/validate-token`, {
+        const response = await axios.get(`${SERVICES.auth}/validate-token`, {
             headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -34,7 +34,7 @@ const authenticate = async (req, res, next) => {
     }
 };
 
-//rnviar dados pro usuario
+//enviar dados pro usuario
 const enrichRequestWithUserData = (req, res, next) => {
     if (req.user) {
         // Adiciona os dados do usuário nos headers para repassá-los aos outros serviços
@@ -47,7 +47,7 @@ const enrichRequestWithUserData = (req, res, next) => {
 
 app.use((req, res, next) => {
     console.log(`Requisição recebida: ${req.method} ${req.url}`);
-    next(); // Chama o próximo middleware ou rota
+    next();
 });
 
 
@@ -56,11 +56,7 @@ app.use(
     createProxyMiddleware({
         target: SERVICES.auth,
         changeOrigin: true,
-        pathRewrite: {
-            '^/api/auth': '/api/auth',
-        },
         onProxyReq: (proxyReq, req, res) => {
-            console.log(`Encaminhando para: ${SERVICES.auth}/api/auth/register`);
             console.log('Cabeçalhos recebidos pela Gateway:', req.headers);
         },
         onError: (err, req, res) => {
@@ -69,6 +65,15 @@ app.use(
         }
     })
 );
+
+//url de teste pra urls protegidas (posts, home)
+app.get('/home', authenticate, (req, res) => {
+    res.status(200).json({
+        message: 'Rota protegida acessada com sucesso!',
+        user: req.user,
+    });
+});
+
 
 
 app.listen(PORT, () => {

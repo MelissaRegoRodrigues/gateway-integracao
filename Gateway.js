@@ -66,6 +66,28 @@ app.use(
     })
 );
 
+app.use(
+    '/api/posts',
+    authenticate,
+    enrichRequestWithUserData,
+    createProxyMiddleware({
+        target: SERVICES.posts,
+        changeOrigin: true,
+        pathRewrite: { '^/api/posts': '' },
+    })
+);
+
+app.use(
+    '/api/notifications',
+    authenticate,
+    enrichRequestWithUserData,
+    createProxyMiddleware({
+        target: SERVICES.notifications,
+        changeOrigin: true,
+        pathRewrite: { '^/api/notifications': '' },
+    })
+);
+
 //url de teste pra urls protegidas (posts, home)
 app.get('/home', authenticate, (req, res) => {
     res.status(200).json({

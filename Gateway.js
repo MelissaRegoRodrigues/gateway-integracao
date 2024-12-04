@@ -7,9 +7,9 @@ const app = express();
 const PORT = 8088;
 
 const SERVICES = {
-    auth: 'http://localhost:8080/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
+    auth: 'http://localhost:8082/api/usuarios', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
     posts: 'http://localhost:8082', // Serviço de posts
-    notifications: 'http://localhost:8083', // Serviço de notificações
+
 };
 
 //JWT
@@ -51,8 +51,32 @@ app.use((req, res, next) => {
 });
 
 
+
+
+app.get(
+    '/api/*',  // Captura qualquer requisição que comece com /api/
+    enrichRequestWithUserData,
+    createProxyMiddleware({
+        target: SERVICES.posts,  // Defina o serviço de destino para redirecionar
+        changeOrigin: true,      // Muda a origem para o servidor de destino
+        pathRewrite: (path, req) => {
+            console.log(`Reescrevendo o caminho de ${path}`);
+            return path.replace(/^\/api/, '/api');  // O caminho é mantido como está
+        },
+        onProxyReq: (proxyReq, req, res) => {
+            console.log(`Proxy headers: ${JSON.stringify(req.headers)}`);
+            console.log(`Proxy para o caminho: ${req.url}`);
+        },
+        onError: (err, req, res) => {
+            console.error(`Erro ao redirecionar para o serviço de posts: ${err.message}`);
+            res.status(500).json({ error: 'Erro ao redirecionar a requisição para o serviço de posts.' });
+        },
+    })
+);
+
+
 app.use(
-    '/api/auth',
+    '/api/usuarios',
     createProxyMiddleware({
         target: SERVICES.auth,
         changeOrigin: true,
@@ -67,26 +91,44 @@ app.use(
 );
 
 app.use(
-    '/api/posts',
-    authenticate,
+    '/api/*',  // Usando um wildcard para capturar qualquer coisa que comece com /api/
+    enrichRequestWithUserData,
+    createProxyMiddleware({
+        target: SERVICES.posts, // O serviço para o qual você está redirecionando
+        changeOrigin: true,      // Muda a origem para o destino, necessário para evitar problemas de CORS
+        pathRewrite: (path, req) => {
+            console.log(`Reescrevendo o caminho de ${path}`);
+            // O path já é o que você quer no destino, então apenas retorna ele mesmo
+            return path.replace(/^\/api/, '/api');  // Pode ser ajustado se necessário
+        },
+        onProxyReq: (proxyReq, req, res) => {
+            console.log(`Proxy headers: ${JSON.stringify(req.headers)}`);
+            console.log(`Proxy para o caminho: ${req.url}`);
+        },
+        onError: (err, req, res) => {
+            console.error(`Erro ao redirecionar para o serviço de posts: ${err.message}`);
+            res.status(500).json({ error: 'Erro ao redirecionar a requisição para o serviço de posts.' });
+        },
+    })
+);
+app.get(
+    '/api/usuarios',
     enrichRequestWithUserData,
     createProxyMiddleware({
         target: SERVICES.posts,
         changeOrigin: true,
-        pathRewrite: { '^/api/posts': '' },
+        pathRewrite: { '^/api/usuarios': '' },
+        onProxyReq: (proxyReq, req, res) => {
+            console.log(`Proxy headers: ${JSON.stringify(req.headers)}`);
+            console.log(`Proxy para Posts: ${req.url}`);
+        },
+        onError: (err, req, res) => {
+            console.error(`Erro ao redirecionar para o serviço de posts: ${err.message}`);
+            res.status(500).json({ error: 'Erro ao redirecionar a requisição para o serviço de posts.' });
+        },
     })
 );
 
-app.use(
-    '/api/notifications',
-    authenticate,
-    enrichRequestWithUserData,
-    createProxyMiddleware({
-        target: SERVICES.notifications,
-        changeOrigin: true,
-        pathRewrite: { '^/api/notifications': '' },
-    })
-);
 
 //url de teste pra urls protegidas (posts, home)
 app.get('/home', authenticate, (req, res) => {

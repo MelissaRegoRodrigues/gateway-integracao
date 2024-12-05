@@ -7,7 +7,7 @@ const app = express();
 const PORT = 8088;
 
 const SERVICES = {
-    auth: 'http://localhost:8082/api/usuarios', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
+    auth: 'http://localhost:8080/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
     posts: 'http://localhost:8082', // Serviço de posts
 
 };
@@ -50,9 +50,72 @@ app.use((req, res, next) => {
     next();
 });
 
+app.post('/api/auth/register', async (req, res) => {
+    const { username, email, password } = req.body;
+
+    try {
+        // Enviar dados ao microsserviço de autenticação
+        const authResponse = await axios.post(`${SERVICES.auth}/register`, {
+            username,
+            email,
+            password
+        });
+
+        console.log('Resposta do microsserviço de autenticação:', authResponse.status);
 
 
+        // Enviar os dados ao microsserviço de posts
+        const postsResponse = await axios.post(`${SERVICES.posts}/api/usuarios/register`,  {
+            nome: username,
+            email: email,
+            senha: password,
+            seguidores: null,
+            seguindo: null
+        });
 
+        console.log('Resposta do microsserviço de posts:', postsResponse.status);
+        console.log(res.json);
+
+        // Retornar sucesso
+        res.status(201).json({
+            message: 'Usuário registrado com sucesso!'
+        });
+
+    } catch (error) {
+        // Capturar e exibir erro detalhado
+        console.error('Erro ao registrar o usuário:', error.message);
+        if (error.response) {
+            console.error('Resposta de erro do servidor:', error.response.data);
+        }
+        res.status(500).json({ message: 'Erro ao registrar o usuário.' });
+    }
+});
+
+
+app.use(
+    '/api/auth',
+    createProxyMiddleware({
+        target: SERVICES.auth,
+        changeOrigin: true,
+        onProxyReq: (proxyReq, req, res) => {
+            console.log('Cabeçalhos recebidos pela Gateway:', req.headers);
+        },
+        onError: (err, req, res) => {
+            console.error('Erro no Proxy:', err);
+            res.status(500).send('Erro ao redirecionar a requisição.');
+        }
+    })
+);
+
+//url de teste pra urls protegidas (posts, home)
+app.get('/home', authenticate, (req, res) => {
+    res.status(200).json({
+        message: 'Rota protegida acessada com sucesso!',
+        user: req.user,
+    });
+});
+
+//pra que o get se tem o use depois e não precisa desse *, funciona pra pegar tudo assim: '/api
 app.get(
     '/api/*',  // Captura qualquer requisição que comece com /api/
     enrichRequestWithUserData,
@@ -111,6 +174,8 @@ app.use(
         },
     })
 );
+
+//pra que isso se tem o use la na frente, ele devia fazer esse trabalho já
 app.get(
     '/api/usuarios',
     enrichRequestWithUserData,
@@ -128,16 +193,6 @@ app.get(
         },
     })
 );
-
-
-//url de teste pra urls protegidas (posts, home)
-app.get('/home', authenticate, (req, res) => {
-    res.status(200).json({
-        message: 'Rota protegida acessada com sucesso!',
-        user: req.user,
-    });
-});
-
 
 
 app.listen(PORT, () => {

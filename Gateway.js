@@ -2,17 +2,15 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const { log } = require('console');
 
 const app = express();
 const PORT = 8088;
 
 const SERVICES = {
-    auth: 'https://f464-2804-29b8-524e-908-886a-49e1-9ec7-75f8.ngrok-free.app/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
-    base: 'http://localhost:8082/api', // Serviço de posts
+    auth: 'http://localhost:8080/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
+    base: 'https://760c-45-237-164-195.ngrok-free.app/api', // Serviço de posts
 
 };
-
 
 //JWT
 const authenticate = async (req, res, next) => {
@@ -20,7 +18,7 @@ const authenticate = async (req, res, next) => {
     if (!token) {
         return res.status(401).json({ error: 'Token não fornecido' });
     }
-    
+
     try {
         // Valida o token via microsserviço de autenticação
         const response = await axios.get(`${SERVICES.auth}/validate-token`, {
@@ -52,9 +50,10 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post('/api/auth/register', express.json() ,async (req, res) => {
+app.post('/api/auth/register', express.json(), async (req, res) => {
+
     const { username, email, password } = req.body;
-    
+
     try {
         // Enviar dados ao microsserviço de autenticação
         const authResponse = await axios.post(`${SERVICES.auth}/register`, {
@@ -67,7 +66,7 @@ app.post('/api/auth/register', express.json() ,async (req, res) => {
         const usuario = authResponse.data;
 
         console.log(usuario);
-        
+
         // Enviar os dados ao microsserviço de posts
         const postsResponse = await axios.post(`${SERVICES.base}/usuarios/register`,  {
             id: usuario.userId,
@@ -78,7 +77,7 @@ app.post('/api/auth/register', express.json() ,async (req, res) => {
             seguindo: null
         });
 
-        
+
         console.log('Resposta do microsserviço de posts:', postsResponse.status);
         console.log(res.json);
 
@@ -96,6 +95,7 @@ app.post('/api/auth/register', express.json() ,async (req, res) => {
         res.status(500).json({ message: 'Erro ao registrar o usuário.' });
     }
 });
+
 
 app.use(
     '/api/auth',
@@ -119,7 +119,6 @@ app.get('/home', authenticate, (req, res) => {
         user: req.user,
     });
 });
-
 
 // seguir um usuário
 app.post('/api/usuarios/follow/:seguidorId/:alvoId', async (req, res) => {
@@ -148,7 +147,7 @@ app.post('/api/usuarios/follow/:seguidorId/:alvoId', async (req, res) => {
 app.post('/api/usuarios/unfollow/:seguidorId/:alvoId', async (req, res) => {
     const {seguidorId, alvoId} = req.params
     console.log(seguidorId, alvoId);
-    
+
     try {
         // Enviar dados ao microsserviço de autenticação
         const baseResponse = await axios.post(`${SERVICES.base}/usuarios/unfollow/${seguidorId}/${alvoId}`);
@@ -171,30 +170,35 @@ app.post('/api/usuarios/unfollow/:seguidorId/:alvoId', async (req, res) => {
 
 // criar novo post
 app.post(
-    '/posts',
+    '/api/posts', express.json(),
     async (req, res) => {
-        const novoPost = req.body;
-    
-        try {
-            const baseResponse = await axios.post(`${SERVICES.base}/posts`, novoPost);
-    
-            console.log('Resposta do microsserviço base:', baseResponse.status);
-    
-            res.status(201).json(baseResponse);
-    
-        } catch (error) {
-            console.error('Erro ao seguir o usuário:', error.message);
-            if (error.response) {
-                console.error('Resposta de erro do servidor:', error.response.data);
-            }
-            res.status(500).json({ message: 'Erro ao seguir o usuário.' });
-        }
+        console.log(req.body)
+        const {donoId, titulo, conteudo, hashTags} = req.body;
+        const baseResponse = await axios.post(`${SERVICES.base}/posts`, {
+            donoId,
+            titulo,
+            conteudo,
+            hashTags});
+
+        console.log(baseResponse.data.id)
+        const kafkaResponse = await axios.post(`${SERVICES.base}/posts/${baseResponse.data.id}/send`)
+        console.log(kafkaResponse)
+
+        return res.status(201).json(baseResponse.data);
     }
 );
 
 app.get("/api/usuarios/:usuarioId", async (req, res) => {
     const {usuarioId} = req.params;
     const baseResponse = await axios.get(`${SERVICES.base}/usuarios/${usuarioId}`);
+
+    return res.status(201).json(baseResponse.data);
+})
+
+//pegar posts de quem ta seguindo
+app.get("/api/posts/seguidor/:usuarioId", async (req, res) => {
+    const {usuarioId} = req.params;
+    const baseResponse = await axios.get(`${SERVICES.base}/posts/seguidor/${usuarioId}`);
     return res.status(200).json(baseResponse.data);
 })
 
@@ -211,15 +215,6 @@ app.get("/api/posts/:postId", async (req, res) => {
     return res.status(200).json(baseResponse.data)
 })
 
-app.post("/api/posts", express.json(), async (req, res) => {
-    const {donoId, titulo, conteudo, hashTags} = req.body;
-    const baseResponse = await axios.post(`${SERVICES.base}/posts`, {
-        donoId,
-        titulo,
-        conteudo, 
-        hashTags});
-    return res.status(201).json(baseResponse.data);
-})
 
 
 app.listen(PORT, () => {

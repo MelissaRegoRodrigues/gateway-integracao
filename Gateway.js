@@ -208,9 +208,10 @@ app.get("/api/posts", async (req, res) =>{
 app.get("/api/posts/:postId", async (req, res) => {
     const {postId} = req.params;
     const baseResponse = await axios.get(`${SERVICES.base}/posts/${postId}`);
-    return res.status(200).json(baseResponse.data)
+    return res.status(200).json(baseResponse.data);
 })
 
+// criar um post
 app.post("/api/posts", express.json(), async (req, res) => {
     const {donoId, titulo, conteudo, hashTags} = req.body;
     const baseResponse = await axios.post(`${SERVICES.base}/posts`, {
@@ -218,7 +219,17 @@ app.post("/api/posts", express.json(), async (req, res) => {
         titulo,
         conteudo, 
         hashTags});
+
+        const kafkaResponse = await axios.post(`${SERVICES.base}/posts/${baseResponse.data.id}/send`)
+        log
+
     return res.status(201).json(baseResponse.data);
+})
+
+app.get("/seguidor/:seguidorId", async (req, res) => {
+    const {usuarioId} = req.params;
+    const baseResponse = await axios.get(`${SERVICES.base}/seguidor/{seguidorId}/${usuarioId}`)
+    return res.status(200).json(baseResponse);
 })
 
 

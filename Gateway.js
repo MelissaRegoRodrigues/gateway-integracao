@@ -2,6 +2,7 @@ const express = require('express');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const { log } = require('console');
 
 const app = express();
 const PORT = 8088;
@@ -65,9 +66,11 @@ app.post('/api/auth/register', express.json() ,async (req, res) => {
         console.log('Resposta do microsserviço de autenticação:', authResponse.status);
         const usuario = authResponse.data;
 
+        console.log(usuario);
+        
         // Enviar os dados ao microsserviço de posts
         const postsResponse = await axios.post(`${SERVICES.base}/usuarios/register`,  {
-            id: usuario.id,
+            id: usuario.userId,
             nome: username,
             email: email,
             senha: password,
@@ -130,7 +133,31 @@ app.post('/api/usuarios/follow/:seguidorId/:alvoId', async (req, res) => {
 
 
         // Retornar sucesso
-        res.status(200).json(baseResponse);
+        res.status(200).json(baseResponse.data);
+
+    } catch (error) {
+        // Capturar e exibir erro detalhado
+        console.error('Erro ao seguir o usuário:', error.message);
+        if (error.response) {
+            console.error('Resposta de erro do servidor:', error.response.data);
+        }
+        res.status(500).json({ message: 'Erro ao seguir o usuário.' });
+    }
+});
+
+app.post('/api/usuarios/unfollow/:seguidorId/:alvoId', async (req, res) => {
+    const {seguidorId, alvoId} = req.params
+    console.log(seguidorId, alvoId);
+    
+    try {
+        // Enviar dados ao microsserviço de autenticação
+        const baseResponse = await axios.post(`${SERVICES.base}/usuarios/unfollow/${seguidorId}/${alvoId}`);
+
+        console.log('Resposta do microsserviço base:', baseResponse.status);
+
+
+        // Retornar sucesso
+        res.status(200).json(baseResponse.data);
 
     } catch (error) {
         // Capturar e exibir erro detalhado
@@ -167,9 +194,7 @@ app.post(
 
 app.get("/api/usuarios/:usuarioId", async (req, res) => {
     const {usuarioId} = req.params;
-    
     const baseResponse = await axios.get(`${SERVICES.base}/usuarios/${usuarioId}`);
-
     return res.status(200).json(baseResponse.data);
 })
 
@@ -185,6 +210,17 @@ app.get("/api/posts/:postId", async (req, res) => {
     const baseResponse = await axios.get(`${SERVICES.base}/posts/${postId}`);
     return res.status(200).json(baseResponse.data)
 })
+
+app.post("/api/posts", express.json(), async (req, res) => {
+    const {donoId, titulo, conteudo, hashTags} = req.body;
+    const baseResponse = await axios.post(`${SERVICES.base}/posts`, {
+        donoId,
+        titulo,
+        conteudo, 
+        hashTags});
+    return res.status(201).json(baseResponse.data);
+})
+
 
 app.listen(PORT, () => {
     console.log(`API Gateway rodando na porta ${PORT}`);

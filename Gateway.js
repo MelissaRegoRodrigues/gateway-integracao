@@ -51,8 +51,6 @@ app.use((req, res, next) => {
 });
 
 
-
-
 app.get(
     '/api/*',  // Captura qualquer requisição que comece com /api/
     enrichRequestWithUserData,
@@ -90,27 +88,7 @@ app.use(
     })
 );
 
-app.use(
-    '/api/*',  // Usando um wildcard para capturar qualquer coisa que comece com /api/
-    enrichRequestWithUserData,
-    createProxyMiddleware({
-        target: SERVICES.posts, // O serviço para o qual você está redirecionando
-        changeOrigin: true,      // Muda a origem para o destino, necessário para evitar problemas de CORS
-        pathRewrite: (path, req) => {
-            console.log(`Reescrevendo o caminho de ${path}`);
-            // O path já é o que você quer no destino, então apenas retorna ele mesmo
-            return path.replace(/^\/api/, '/api');  // Pode ser ajustado se necessário
-        },
-        onProxyReq: (proxyReq, req, res) => {
-            console.log(`Proxy headers: ${JSON.stringify(req.headers)}`);
-            console.log(`Proxy para o caminho: ${req.url}`);
-        },
-        onError: (err, req, res) => {
-            console.error(`Erro ao redirecionar para o serviço de posts: ${err.message}`);
-            res.status(500).json({ error: 'Erro ao redirecionar a requisição para o serviço de posts.' });
-        },
-    })
-);
+
 app.get(
     '/api/usuarios',
     enrichRequestWithUserData,
@@ -128,6 +106,8 @@ app.get(
         },
     })
 );
+
+
 
 
 //url de teste pra urls protegidas (posts, home)

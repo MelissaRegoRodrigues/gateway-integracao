@@ -8,7 +8,7 @@ const PORT = 8088;
 
 const SERVICES = {
     auth: 'http://localhost:8080/api/auth', // Serviço de autenticação, 8081 ta o front (Deu um bug cabuloso aqui quando errei a porta)
-    base: 'https://760c-45-237-164-195.ngrok-free.app/api', // Serviço de posts
+    base: 'http://localhost:8082/api', // Serviço de posts
 
 };
 
@@ -64,8 +64,14 @@ app.post('/api/auth/register', express.json(), async (req, res) => {
 
         console.log('Resposta do microsserviço de autenticação:', authResponse.status);
         const usuario = authResponse.data;
-
         console.log(usuario);
+
+        console.log('Corpo enviado para o microsserviço de posts:', {
+            id: usuario.userId,
+            nome: username,
+            email: email,
+            senha: password,
+        });
 
         // Enviar os dados ao microsserviço de posts
         const postsResponse = await axios.post(`${SERVICES.base}/usuarios/register`,  {
@@ -73,8 +79,6 @@ app.post('/api/auth/register', express.json(), async (req, res) => {
             nome: username,
             email: email,
             senha: password,
-            seguidores: null,
-            seguindo: null
         });
 
 
@@ -199,6 +203,7 @@ app.get("/api/usuarios/:usuarioId", async (req, res) => {
 app.get("/api/posts/seguidor/:usuarioId", async (req, res) => {
     const {usuarioId} = req.params;
     const baseResponse = await axios.get(`${SERVICES.base}/posts/seguidor/${usuarioId}`);
+
     return res.status(200).json(baseResponse.data);
 })
 

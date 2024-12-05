@@ -51,7 +51,7 @@ app.use((req, res, next) => {
     next();
 });
 
-app.post('/api/auth/register' ,async (req, res) => {
+app.post('/api/auth/register', express.json() ,async (req, res) => {
     const { username, email, password } = req.body;
     
     try {
@@ -168,9 +168,8 @@ app.post(
 app.get("/api/usuarios/:usuarioId", async (req, res) => {
     const {usuarioId} = req.params;
     
-    const baseResponse = await axios.get(`${SERVICES.base}/usuarios/${usuarioId.data}`);
+    const baseResponse = await axios.get(`${SERVICES.base}/usuarios/${usuarioId}`);
 
-    console.log(baseResponse.data);
     return res.status(200).json(baseResponse.data);
 })
 
@@ -180,6 +179,12 @@ app.get("/api/posts", async (req, res) =>{
     console.log(baseResponse.data);
     return res.status(200).json(baseResponse.data);
 });
+
+app.get("/api/posts/:postId", async (req, res) => {
+    const {postId} = req.params;
+    const baseResponse = await axios.get(`${SERVICES.base}/posts/${postId}`);
+    return res.status(200).json(baseResponse.data)
+})
 
 app.listen(PORT, () => {
     console.log(`API Gateway rodando na porta ${PORT}`);
